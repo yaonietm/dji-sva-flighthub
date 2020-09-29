@@ -1,0 +1,18 @@
+## v1.4.0  released on 2019-12-01 
++ feature:新增获取禁飞区接口
++ feature:新增获取系统套餐信息接口
++ feature:新增远程控制类SDK接口
++ feature:新增任务管理类SDK接口
++ feature:新增获取设备管理列表接口
++ feature:媒体文件列表新增查询条件和返回字段
+
++ fix:统一所有分页类接口返回值字段，data里面包含list和pagination两个字段
++ fix:统一所以查询类接口的参数字段
+
+## v1.3.0  released on 2019-06-01
++ feature:新增团队管理接口
++ feature:新增用户管理接口
++ feature:新增飞机管理接口
++ feature:新增数据上报接口
++ feature:新增在线数据查询接口
++ feature:新增数据统计接口

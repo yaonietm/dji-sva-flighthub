@@ -1,0 +1,1802 @@
+swagger: '2.0'
+info:
+  version: 1.1.0
+  title: WebSDK REST API v3 for app
+  description: |
+    ### About the REST API
+    [get start](./getStart.MD)
+    [read the change.log](./change.log)
+    The WebSDK REST API v3 document offers complete control over drone, team, pilot user, flight statistics and live streaming through FlightHub platform.
+
+    ### Authenticate
+    The auth detail of REST API:
+    1. Use auth/login api get token and signkey. When use other api, set `FH-AppId` with the value of token, use `signkey` sign your api
+
+host: 10.61.200.192
+basePath: /fhsdk/v3
+consumes:
+  - "application/json"
+schemes:
+  - http
+  - https
+securityDefinitions:
+  FH-AppId:
+    name: "FH-AppId"
+    type: "apiKey"
+    in: "header"
+    description: "App ID"
+  FH-ReqId:
+    name: "FH-ReqId"
+    type: "apiKey"
+    in: "header"
+    description: "Unique ID for each request, for tracing purpose."
+  FH-Ts:
+    name: "FH-Ts"
+    type: "apiKey"
+    in: "header"
+    description: "The time in milliseconds since the UNIX epoch"
+  FH-Sign:
+    name: "FH-Sign"
+    type: "apiKey"
+    in: "header"
+    description: "signature"
+security:
+  - FH-AppId: []
+    FH-Sign: []
+
+paths:
+
+  ####################### AUTH ############################
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: User login
+      description: ''
+      consumes:
+        - application/x-www-form-urlencoded
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: account
+          in: formData
+          description: user account
+          required: true
+          type: string
+        - name: password
+          in: formData
+          description: user password
+          required: true
+          type: string
+      responses:
+        200:
+          description: success response
+          schema:
+            allOf:
+              - $ref: '#/definitions/StandardResponse'
+              - properties:
+                  data:
+                    type: object
+                    required:
+                      - account
+                      - token
+                      - signkey
+                      - validity
+                    properties:
+                      account:
+                        description: login account
+                        type: string
+                      token:
+                        description: token used in session
+                        type: string
+                      signkey:
+                        description: key to sign the request
+                        type: string
+                      validity:
+                        description: token expire time, in UNIX seconds
+                        type: integer
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+  /auth/updatetoken:
+    post:
+      tags:
+        - Auth
+      summary: Update token to extend the authentication expire time
+      description: ''
+      produces:
+        - application/json
+      responses:
+        200:
+          description: success response
+          schema:
+            allOf:
+              - $ref: '#/definitions/StandardResponse'
+              - properties:
+                  data:
+                    type: object
+                    required:
+                      - token
+                      - signkey
+                      - validity
+                    properties:
+                      token:
+                        description: token used in session
+                        type: string
+                      signkey:
+                        description: key to sign the request
+                        type: string
+                      validity:
+                        description: token expire time, in UNIX seconds
+                        type: integer
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+
+  ####################### SYSTEM ############################
+  /system/license:
+    get:
+      tags:
+        - System
+      summary: Get license info
+      responses:
+        200:
+          description: success response
+          schema:
+            allOf:
+              - $ref: '#/definitions/StandardResponse'
+              - properties:
+                  data:
+                    type: object
+                    $ref: '#/definitions/LicenseInfoModel'
+
+  /system/limitArea:
+    get:
+      tags:
+        - System
+      summary: Get limit area
+      parameters:
+        - name: latitude
+          type: number
+          format: float
+          in: query
+          required: true
+        - name: longitude
+          type: number
+          format: float
+          in: query
+          required: true
+        - name: radius
+          type: integer
+          in: query
+          required: true
+      responses:
+        200:
+          description: success response
+          schema:
+            allOf:
+              - $ref: '#/definitions/StandardResponse'
+              - properties:
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/definitions/LimitAreaItemModel'
+
+  ####################### Team ############################
+  /teams:
+    get:
+      tags:
+        - Team
+      summary: Get all teams
+      responses:
+        200:
+          description: success response
+          schema:
+            allOf:
+              - $ref: '#/definitions/StandardResponse'
+              - properties:
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/definitions/TeamGetModel'
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+
+  ####################### Drones ############################
+  /drones/{sn}:
+    parameters:
+      - $ref: '#/parameters/droneSNPathParam'
+    put:
+      tags:
+        - Drone
+      summary: Update drone infomation
+      parameters:
+        - in: body
+          name: drone
+          description: The team to create.
+          schema:
+            $ref: '#/definitions/DroneEditModel'
+      responses:
+        200:
+          $ref: '#/definitions/StandardResponse'
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+
+  /teams/{teamId}/drones:
+    post:
+      tags:
+        - Drone
+      summary: Bind drone to a team
+      parameters:
+        - $ref: '#/parameters/teamIdParam'
+        - in: body
+          name: member
+          description: parameter.
+          schema:
+            $ref: '#/definitions/DroneBindPara'
+      responses:
+        200:
+          $ref: '#/definitions/StandardResponse'
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+
+  ####################### Streams ############################
+  /drones/{sn}/stream/publish:
+    get:
+      tags:
+        - Live Streaming
+      summary: Get address for publishing a live stream
+      parameters:
+        - $ref: '#/parameters/droneSNPathParam'
+      responses:
+        200:
+          description: success response
+          schema:
+            allOf:
+              - $ref: '#/definitions/StandardResponse'
+              - properties:
+                  data:
+                    type: object
+                    required:
+                      - rtmp
+                    properties:
+                      rtmp:
+                        type: object
+                        properties:
+                          publishUrl:
+                            type: string
+                            example: "rtmp://10.61.91.204/fh/SIM-0005?type=publish&wowzatokenhash=2d5fc4145667401263afca90800b5428b986d626&wowzatokenendtime=1536071478"
+                            description: URL of publish streaming
+
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+  /drones/{sn}/stream/play:
+    get:
+      tags:
+        - Live Streaming
+      summary: Get address for playing a live stream
+      parameters:
+        - $ref: '#/parameters/droneSNPathParam'
+      responses:
+        200:
+          description: success response
+          schema:
+            allOf:
+              - $ref: '#/definitions/StandardResponse'
+              - properties:
+                  data:
+                    type: object
+                    required:
+                      - rtmp
+                    properties:
+                      rtmp:
+                        type: object
+                        properties:
+                          playUrl:
+                            type: string
+                            example: "rtmp://10.61.91.204/fhstream/SIM-0005?type=play&wowzatokenhash=e60c14af7c9b2a8c56f7734823d43f5acb1830c3&wowzatokenendtime=1536071501"
+                            description: URL of play streaming
+                      hlv:
+                        type: object
+                        properties:
+                          playUrl:
+                            type: string
+                            example: "http://10.61.91.204/fhstream/SIM-0005.flv?type=play&wowzatokenhash=e60c14af7c9b2a8c56f7734823d43f5acb1830c3&wowzatokenendtime=1536071501"
+                            description: URL of http-flv play streaming
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+  
+  ####################### Online ############################
+  /online/flightevents:
+    post:
+      tags:
+        - Real-time Report
+      summary: Flight event report. Report periodically when drone has been taken off.
+      parameters:
+        - name: body
+          in: body
+          description: online status
+          required: true
+          schema:
+            type: object
+            required:
+              - recordList
+            properties:
+              recordList:
+                type: array
+                items:
+                  $ref: '#/definitions/FlyReport'
+      produces:
+        - application/json
+      responses:
+        200:
+          $ref: '#/definitions/SuccessResponse'
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+
+  ####################### Objects ############################
+  /objects:
+    get:
+      tags:
+        - Storage
+      summary: Get file list of videos, pictures
+      parameters:
+        - name: category
+          in: query
+          required: true
+          type: string
+          description: |
+            category of the file: `flightPic`, `flightVideo`, `flightMedia`
+        - name: teamId
+          in: query
+          type: integer
+          required: true
+        - name: account
+          in: query
+          type: string
+        - name: sn
+          in: query
+          type: string
+        - $ref: '#/parameters/startTsParam'
+        - $ref: '#/parameters/endTsParam'
+        - $ref: '#/parameters/offsetParam'
+        - $ref: '#/parameters/limitParam'
+        - $ref: '#/parameters/sortField'
+        - $ref: '#/parameters/sortDirection'
+      responses:
+        200:
+          description: list of files
+          schema:
+            allOf:
+              - $ref: '#/definitions/StandardResponse'
+              - properties:
+                  data:
+                    type: object
+                    properties:
+                      list:
+                        type: array
+                        items:
+                          $ref: '#/definitions/FileListModel'
+                      pagination:
+                        $ref: '#/definitions/PaginationModel'
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+    post:
+      tags:
+        - Storage
+      consumes:
+        - application/binary # depends on body content?
+      summary: Upload a object
+      description: |
+        Content-type of the request depends on the content uploaded,
+        and it will be saved as a metadata of object.
+      parameters:
+        - name: category
+          in: formData
+          type: string
+          description: "category supported: `flightPic`, `flightVideo`, `missionPic`, `flightRecord`"
+        - name: filename
+          in: formData
+          type: string
+          description: upload file name
+        - name: teamId
+          in: formData
+          type: integer
+          description: target teamId
+        - name: recordId
+          in: formData
+          type: string
+          description: recordID associated to a object
+        - name: contentType
+          in: formData
+          type: string
+          description: "MIME content type of the object"
+        - name: file
+          in: formData
+          type: string
+          format: binary
+          description: object binary
+      responses:
+        200:
+          description: success response
+          schema:
+            allOf:
+              - $ref: '#/definitions/StandardResponse'
+              - properties:
+                  data:
+                    type: object
+                    required:
+                      - id
+                      - path
+                    properties:
+                      path:
+                        description: download path
+                        type: string
+                        example:  "/objects/missionPic/31243-2314-2341-4234"
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+
+  /objects/{category}/{id}:
+    parameters:
+      - name: category
+        in: path
+        required: true
+        type: string
+      - name: id
+        in: path
+        required: true
+        description: object ID
+        type: string
+    get:
+      tags:
+        - Storage
+      summary: Download a object
+      produces:
+        - "application/octet-stream"
+      description: |
+        `Content-Type` of the object is the one specified when uploading object.
+      responses:
+        200:
+          description: client side error
+          schema:
+            type: string
+            format: binary
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+    delete:
+      tags:
+        - Storage
+      summary: Delete a object
+      responses:
+        200:
+          $ref: '#/definitions/SuccessResponse'
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+
+  /objects/{category}/{id}/metadata:
+    parameters:
+      - name: category
+        in: path
+        required: true
+        type: string
+      - name: id
+        in: path
+        required: true
+        type: string
+        description: object ID
+    put:
+      tags:
+        - Storage
+      summary: Update metadata of a object
+      parameters:
+        - in: body
+          name: body
+          description: metadata of the object
+          schema:
+            type: object
+            required:
+              - filename
+            properties:
+              filename:
+                type: string
+                description: "file name of the object"
+                example: "shenzhen_001.jpg"
+
+      responses:
+        200:
+          $ref: '#/definitions/SuccessResponse'
+        400:
+          $ref: '#/definitions/InputErrorResponse'
+        500:
+          $ref: '#/definitions/ServerInternalErrorResponse'
+
+
+definitions:
+  InputErrorResponse:
+    description: client side error
+    allOf:
+      - $ref: '#/definitions/StandardResponse'
+      - properties:
+          data:
+            type: string
+    example:
+      {
+        code: 1004,
+        message: "Some client side error",
+      }
+  ServerInternalErrorResponse:
+    description: server side error
+    allOf:
+      - $ref: '#/definitions/StandardResponse'
+      - properties:
+          data:
+            type: string
+    example:
+      {
+        code: 2004,
+        message: "Some server side error",
+      }
+
+  SuccessResponse:
+    description: success response
+    allOf:
+      - $ref: '#/definitions/StandardResponse'
+
+  StandardResponse:
+    type: object
+    required:
+      - code
+      - message
+    properties:
+      code:
+        type: integer
+        format: int64
+      message:
+        type: string
+        format: string
+        example: ""
+  UserCreateModel:
+    type: object
+    required:
+      - account
+      - password
+      - name
+    properties:
+      account:
+        type: string
+        example: "p1@dji.com"
+      password:
+        type: string
+        example: "XXXXXXXXX"
+      name:
+        type: string
+        example: "Pilot Bob"
+
+  UserUpdateModel:
+    type: object
+    required:
+      - password
+      - name
+    properties:
+      password:
+        type: string
+        example: "XXXXXXXXX"
+      name:
+        type: string
+        example: "Pilot Steve"
+
+  UserGetModel:
+    type: object
+    required:
+      - id
+      - account
+      - name
+    properties:
+      id:
+        type: integer
+        example: 1
+      account:
+        type: string
+        example: "p1@dji.com"
+      name:
+        type: string
+        example: "Pilot Bob"
+      teams:
+        type: array
+        items: 
+          $ref: '#/definitions/UserOfTeamModel'
+
+  UserOfTeamModel:
+    type: object
+    properties:
+      teamId:
+        type: integer
+        example: 1
+      teamName:
+        type: string
+        example: "team of NewYork"
+      level:
+        type: integer
+        example: 0
+      nickName:
+        type: string
+        example: "Bob David"
+
+  LicenseInfoModel:
+    type: object
+    properties:
+      activateTime:
+        type: integer
+        example: 1565936760546
+      expireTime:
+        type: integer
+        example: 1568528760546
+      forever: 
+        type: boolean
+        example: false
+      dayLimit:
+        type: integer
+        example: 365
+      deviceLimit:
+        type: integer
+        example: 100
+      leftDevice:
+        type: integer
+        example: 228
+      leftTime:
+        type: integer
+        example: 2172974726
+
+  LimitAreaItemModel:
+    type: object
+    properties:
+      area_id:
+        type: integer
+        example: 30285013
+      begin_at:
+        type: integer
+        example: 0
+      end_at:
+        type: integer
+        example: 0
+      country:
+        type: string
+        example: ""
+      city:
+        type: string
+        example: ""
+      color:
+        type: string
+        example: ""
+      lat:
+        type: number
+        format: float
+        example: 22.304158
+      lng:
+        type: number
+        format: float
+        example: 923856
+      level:
+        type: integer
+        example: 3
+      radius:
+        type: integer
+        example: 0
+      shape:
+        type: integer
+        example: 2
+      type:
+        type: integer
+        example: 0
+      url:
+        type: string
+        example: ""
+      sub_areas:
+        type: array
+        items: 
+          $ref: '#/definitions/SubAreaItemModel'
+
+  SubAreaItemModel:
+    type: object
+    properties:
+      shape:
+        type: integer
+        example: 2
+      color:
+        type: string
+        example: "e60000"
+      polygon_ponts:
+        type: array
+        items:
+          type: array
+          example: [113.991141, 22.308778]
+
+  TaskItemModel:
+    type: object
+    properties:
+      createTime:
+        type: integer
+        example: 1565936760546
+      updateTime:
+        type: integer
+        example: 1568528760546
+      teamId: 
+        type: integer
+        example: 1
+      teamName: 
+        type: string
+        example: "team1"
+      account:
+        type: string
+        example: 'admin'
+      createBy:
+        type: string
+        example: 'admin'
+      missionId: 
+        type: string
+        example: "bc69b159-7cd0-44ef-98df-9ccae3fef72a"
+      missionName:
+        type: string
+        example: 'mission of shanghai'
+      taskId:
+        type: string
+        example: "9ccae3fe-7cd0-44ef-98df-bc69b159f72a"
+      taskName:
+        type: string
+        example: 'task of shanghai'
+      state:
+        type: integer
+        example: 1
+      msg:
+        type: string
+        example: 'user cancel'
+
+  CreateTaskItemModel:
+    type: object
+    properties:
+      teamId: 
+        type: integer
+        example: 1
+      missionId: 
+        type: string
+        example: "bc69b159-7cd0-44ef-98df-9ccae3fef72a"
+      account:
+        type: string
+        example: 'admin'
+      taskName:
+        type: string
+        example: 'task of shagnhai'
+
+  RefreshTaskModel:
+    type: object
+    properties:
+      queryTimeTs:
+        type: integer
+        example: 1565936760546
+      createCount:
+        type: integer
+        example: 1
+      updateCount:
+        type: integer
+        example: 2
+      deleteCount:
+        type: integer
+        example: 3
+  
+  UpdateTaskItemModel:
+    type: object
+    properties:
+      taskId:
+        type: string
+        example: "9ccae3fe-7cd0-44ef-98df-bc69b159f72a"
+      missionId: 
+        type: string
+        example: "bc69b159-7cd0-44ef-98df-9ccae3fef72a"
+      taskName:
+        type: string
+        example: 'misson of shagnhai'
+      state: 
+        type: integer
+        example: 1
+      msg:
+        type: string
+        example: 'user cancel'
+
+  DroneStateItemModel:
+    type: object
+    properties:
+      deviceType:
+        type: string
+        example: "Phantom 4"
+      sn:
+        type: string
+        example: "1DAD456001008H"
+      deviceName:
+        type: string
+        example: "Drone No.1"
+      fimwareVersion:
+        type: string
+        example: "1.02.0345"
+      totalDistance:
+        type: number
+        format: float
+        example: 234.15
+      flyCount:
+        type: integer
+        example: 14
+      sumFlyDuration:
+        type: integer
+        example: 30483
+      latestFlyDate:
+        type: integer
+        example: 1568184041
+      latestFlyDuration:
+        type: integer
+        example: 8
+      waitDuration:
+        type: integer
+        example: 2772855
+      joinDate:
+        type: integer
+        example: 1568025160962
+      teamId:
+        type: integer
+        example: 1
+      maintainStatus:
+        type: integer
+        example: 1
+      maxAltitude:
+        type: number
+        format: float
+        example: 100
+
+  BatteryStateItemModel:
+    type: object
+    properties:
+      deviceType:
+        type: string
+        example: "Phantom 4"
+      teamId: 
+        type: integer
+        example: 1
+      sn:
+        type: string
+        example: "1DAD456001008H"
+      deviceName:
+        type: string
+        example: "Drone No.1"
+      fimwareVersion:
+        type: string
+        example: "1.02.0345"
+      totalDistance:
+        type: number
+        format: float
+        example: 234.15
+      flyCount:
+        type: integer
+        example: 14
+      sumFlyDuration:
+        type: integer
+        example: 30483
+      deviceStatus:
+        type: integer
+        example: 0
+      latestFlyDate:
+        type: integer
+        example: 1568184041
+      latestFlyDuration:
+        type: integer
+        example: 8
+      batteryLife:
+        type: integer
+        example: 90
+      recycleCount:
+        type: integer
+        example: 108
+      waitDuration:
+        type: integer
+        example: 2772855
+      fullCapacity:
+        type: integer
+        example: 7660
+      joinDate:
+        type: integer
+        example: 1568025160962
+      maintainStatus:
+        type: integer
+        example: 1
+      maxAltitude:
+        type: number
+        format: float
+        example: 100
+
+  ModuleItemModel:
+    type: object
+    properties:
+      module:
+        type: string
+        example: "camera"
+      subModule:
+        type: string
+        example: "Zenmuse Z30"
+      moduleDetails:
+        type: string
+        example: '{"digitalZoomSupported":true,"displayName":"Zenmuse Z30","focalLengthStep":1,"index":0,"maxFocusDistance":1290,"meteringSupported":false,"minFocusDistance":43,"opticalZoomSupported":true}'
+
+  TeamCreateModel:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        example: "Beijing Team"
+      parentId:
+        type: integer
+        example: 0
+        description: parent team ID. Set to 0 when creating the top level team.
+  TeamUpdateModel:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        example: "Beijing Team"
+
+  TeamGetModel:
+    type: object
+    required:
+      - id
+      - role
+    properties:
+      id:
+        type: integer
+        example: 2
+      teamName:
+        type: string
+        example: "Beijing Team"
+      role:
+        type: integer
+        example: 1
+        description: user's role in team.
+      memberCount:
+        type: integer
+        example: 1
+        description: member count of team.
+      deviceCount:
+        type: integer
+        example: 1
+        description: device count of team
+      subTeams:
+        description: sub-teams, use same structure as TeamGetModel
+        type: array
+        items:
+          type: object
+        example:
+          [
+                {
+                    "id": 3,
+                    "teamName": "ShenZhen",
+                    "role": 2,
+                    "subTeams": [
+                        {
+                          "id": 4,
+                          "name": "NanShan",
+                          "role": 2,
+                          "memberCount": 0,
+                          "deviceCount": 0,
+                        }
+                    ],
+
+                }
+            ]
+
+  OnlineReport:
+    type: object
+    required:
+      - sn
+      - latitude
+      - longitude
+      - height
+    properties:
+      date:
+        description: report time, in UNIX milliseconds
+        type: integer
+      sn:
+        description: drone SN
+        type: string
+      latitude:
+        type: number
+        format: float
+      longitude:
+        type: number
+        format: float
+      height:
+        type: number
+        format: float
+  FlyReport:
+    type: object
+    required:
+      - sn
+      - latitude
+      - longitude
+      - height
+      - speed
+      - yaw
+      - recordId
+      - date
+    properties:
+      date:
+        description: report time, in UNIX milliseconds
+        type: integer
+      sn:
+        description: drone SN
+        type: string
+      latitude:
+        type: number
+        format: float
+      longitude:
+        type: number
+        format: float
+      altitude:
+        type: number
+        format: float
+        description: "it's flight height compared to `HOME` actually"
+      yaw:
+        type: number
+        format: float
+      speed:
+        type: number
+        format: float
+      speedH:
+        type: number
+        format: float
+        description: horizontal speed
+      speedV:
+        type: number
+        format: float
+        description: vertical speed
+      flightMode:
+        type: integer
+        description: "flight mode, showing in topbar of Pilot APP"
+      waypointMode:
+        type: integer
+        description: "waypoint mode, 0-Pause  1-Executing  -1-Default"
+      isAllowLive:
+        type: boolean
+      batteryLevel:
+        type: integer
+      rcSignal:
+        type: integer
+      homeLatitude:
+        type: number
+        format: float
+      homeLongitude:
+        type: number
+        format: float
+      gimbal:
+        type: array
+        items:
+          $ref: '#/definitions/FlyReportGimbalModel'
+      camera:
+        type: array
+        items:
+          $ref: '#/definitions/FlyReportCameraModel'
+      accessoryModel:
+        type: string
+      recordId:
+        type: string
+      taskId:
+        type: string
+      missionId:
+        type: string
+      #teamId:  //query by account
+      #  type: integer
+      #  description: the team ID
+
+  FlyReportGimbalModel:
+    type: object
+    properties:
+      id:
+        type: integer
+      yaw:
+        type: number
+        format: float
+      pitch:
+        type: number
+        format: float
+      roll:
+        type: number
+        format: float
+  FlyReportCameraModel:
+    type: object
+    properties:
+      id:
+        type: integer
+      status:
+        type: integer
+      model:
+        type: string
+  FlyReportAccessoryModel:
+    type: object
+    properties:
+      model:
+        type: string
+
+
+
+  FightRecordPointModel:
+    type: object
+    required:
+      - date
+      - lat
+      - lng
+      - altitude
+      - speed
+      - yaw
+      - batteryLevel
+      - account
+    properties:
+      account:
+        type: string
+      date:
+        description: report time, in UNIX milliseconds
+        type: integer
+      lat:
+        type: number
+        format: float
+      lng:
+        type: number
+        format: float
+      altitude:
+        type: number
+        format: float
+      speed:
+        type: number
+        format: float
+      yaw:
+        type: number
+        format: float
+      batteryLevel:
+        type: integer
+    example:
+        {
+            "date": 1536064314256,
+            "lat": 22.4891555,
+            "lng": 113.9136718,
+            "altitude": 100,
+            speed: 10,
+            yaw: 90,
+        }
+
+  FlightSummaryModel:
+    type: object
+    properties:
+      account:
+        type: string
+        description: user account
+      teamId:
+        type: integer
+        description: the team ID
+      sn:
+        type: string
+        description: the drone SN
+      droneType:
+        type: string
+        description: the drone type
+      duration:
+        type: integer
+        description: "unit: seconds"
+      distance:
+        type: number
+        format: float
+        description: "flight distance, unit: m"
+      maxHeight:
+        type: number
+        format: float
+        description: "max flight height, unit: m"
+      takeoffLongitude:
+        description: takeoff longitude
+        type: number
+        format: float
+        example: 102.2021457
+      takeoffLatitude:
+        description: takeoff latitude
+        type: number
+        format: float
+        example: 29.9807758
+
+  FlightGetModel:
+    allOf: # Combines the MissionBriefModel and the inline model
+      - type: object
+        required:
+          - id
+        properties:
+          id:
+            type: string
+            description: flight record ID
+          md5:
+            type: string
+            description: md5 signature of the flight result
+          fileName:
+            type: string
+            description: flight file name
+          fileSize:
+            type: integer
+            description: file size in bytes
+          isFavourite:
+            type: integer
+            description: favourite flag
+          path:
+            type: string
+            description: object file download path
+      - $ref: '#/definitions/FlightSummaryModel'
+
+
+  FightStatisticsModel:
+    type: object
+    required:
+      - totalDuration
+      - avgDuration
+      - durationDistributed
+    properties:
+      totalDuration:
+        type: number
+        format: float
+      avgDuration:
+        type: number
+        format: float
+      durationDistribution:
+        type: object
+        properties:
+          "0-5":
+            type: integer
+          "5-10":
+            type: integer
+          "10-15":
+            type: integer
+          "20+":
+            type: integer
+
+  DroneOnlineModel:
+    type: object
+    properties:
+      sn:
+        type: string
+        description: the drone SN
+      name:
+        type: string
+        description: device name
+      type:
+        type: string
+        description: device type
+      teamId:
+        type: integer
+        description: the team ID
+      date:
+        type: integer
+        description: the timestamp of data
+      lat:
+        type: number
+        format: float
+        description: latitude
+      lng:
+        type: number
+        format: float
+        description: longitude
+      altitude:
+        type: number
+        format: float
+        description: altitude
+      speed:
+        type: number
+        format: float
+        description: speed of device
+      yaw:
+        type: number
+        format: float
+        description: yaw of device
+      batteryLevel:
+        type: number
+        format: float
+        description: percent of battery
+      homeLat:
+        type: number
+        format: float
+        description: home latitude
+      homeLng:
+        type: number
+        format: float
+        description: home longitude
+      account:
+        type: string
+        description: account of pilot
+      gimbal:
+        type: object
+        properties:
+          id:
+            description: gimbal id
+            type: integer
+            example: 1
+          yaw: 
+            description: gimbal yaw
+            type: integer
+            example: 10
+          pitch: 
+            description: gimbal pitch
+            type: integer
+            example: 10
+          roll: 
+            description: gimbal roll
+            type: integer
+            example: 10
+      camera:
+        type: object
+        properties:
+          id:
+            description: camera id
+            type: integer
+            example: 1
+          model: 
+            description: camera model
+            type: string
+            example: 
+          isRecording: 
+            description: camera isRecording
+            type: boolean
+            example: true
+          isCapturing: 
+            description: camera isCapturing
+            type: boolean
+            example: true
+          isCaptureEnable: 
+            description: camera isCaptureEnable
+            type: boolean
+            example: true
+          opticalZoom: 
+            description: camera opticalZoom
+            type: integer
+            example: 10
+      liveStatus:
+        description: live-streaming status
+        type: integer
+        example: 0
+
+
+
+  TeamMate:
+    type: object
+    properties:
+      name:
+        description: user account
+        type: string
+      level:
+        description: team level
+        type: integer
+        example: 2
+      realName:
+        description: user's name in team
+        type: string
+
+  TeamMemberCreateModel:
+    type: object
+    required:
+      - userId
+      - role
+    properties:
+      userId:
+        type: integer
+        example: 1
+      role:
+        description: user role in team
+        type: integer
+        example: 2
+  TeamMemberUpdateModel:
+    type: object
+    required:
+      - role
+    properties:
+      role:
+        description: user role in team
+        type: integer
+        example: 2
+
+  TeamMemberGetModel:
+    type: object
+    required:
+      - userId
+      - name
+      - account
+      - role
+    properties:
+      userId:
+        type: integer
+        example: 1
+      name:
+        description: user name
+        type: string
+      account:
+        description: user account
+        type: string
+        example: "USER_1"
+      role:
+        description: user role in team
+        type: integer
+        example: 2
+      #nickName:
+      #  description: user's nickname in team
+      #  type: string
+  DroneGetModel:
+    type: object
+    required:
+      - sn
+      - name
+      - droneType
+      - teamId
+    properties:
+      sn:
+        description: drone SN
+        type: string
+        example: "DRONE_SN_1"
+      name:
+        description: drone name
+        type: string
+        example: "Drone No.1"
+      droneType:
+        description: drone type
+        type: string
+        example: M200
+      teamId:
+        description: team drone belongs to
+        type: integer
+        example: 1
+  DroneEditModel:
+    type: object
+    required:
+      - name
+      - teamId
+    properties:
+      name:
+        description: drone name
+        type: string
+        example: "Drone No.1"
+      teamId:
+        description: team drone belongs to
+        type: integer
+        example: 1
+  DroneBindPara:
+    type: object
+    required:
+      - droneType
+      - sn
+    properties:
+      droneType:
+        description: drone type
+        type: string
+        example: M200
+      sn:
+        description: drone SN
+        type: string
+        example: "DRONE_SN_1"
+
+  FileListModel:
+    type: object
+    properties:
+      name:
+        description: file name
+        type: string
+      path:
+        description: file path
+        type: string
+        example: "/objects/flightPic/31243-2314-2341-4234"
+      metadataPath:
+        description: "path to manipulate the file, like changing file name"
+        type: string
+        example: "/objects/flightPic/31243-2314-2341-4234/metadata"
+      category:
+        description: object category
+        type: string
+        example: flightPic
+      size:
+        description: file size
+        type: integer
+      date:
+        description: "file modified time, in UNIX millisecond"
+        type: integer
+        example: 1536064281000
+      thumbnail:
+        description: "base64 encoded thumbnail of the file"
+        type: string
+      contentType:
+        description: "MIME content type of the object"
+        type: string
+      account:
+        description: "account of the file"
+        type: string
+      sn:
+        description: "account of the sn"
+        type: string
+
+
+  MissionBriefModel:
+    type: object
+    required:
+      - name
+      - type
+      - latitude
+      - longitude
+      - distance
+      - duration
+    properties:
+      name:
+        description: mission name
+        type: string
+        example: "mission1"
+      teamId:
+        description:  team the mission belongs
+        type: integer
+        example: 1
+      type:
+        description: "mission type, 0: waypoints  1: survey"
+        type: integer
+        example: 1
+      version:
+        description: "version"
+        type: integer
+        example: 1
+      coverPic:
+        description: cover picture path
+        type: string
+      latitude:
+        description: latitude ## TODO: what this coordinates means?
+        type: number
+        format: float
+        example: 29.9807758
+      longitude:
+        description: longitude
+        type: number
+        format: float
+        example: 102.2021457
+      locationDesc:
+        description: mission location
+        type: string
+        example: "Nanshan, Shenzhen, China"
+      distance:
+        description: "mission distance (unit: m)"
+        type: number
+        format: float
+        example: 328.1
+      duration:
+        description: "mission duration expected (unit: sec)"
+        type: integer
+        example: 512
+
+  MissionServerGenModel:
+    type: object
+    required:
+      - id
+      - createTime
+      - updateTime
+    properties:
+      id:
+        type: string
+        example: "mission-id-1"
+      createTime:
+        type: number
+        example: 1531813501928
+      createBy:
+        type: string
+        example: "zach"
+      updateTime:
+        type: number
+        example: 1531813501928
+      updateBy:
+        type: string
+        example: "dylan"
+
+  MissionGetBriefModel:
+    allOf:
+      - $ref: '#/definitions/MissionServerGenModel'
+      - $ref: '#/definitions/MissionBriefModel'
+
+  MissionGetDetailModel:
+    allOf:
+      - $ref: '#/definitions/MissionServerGenModel'
+      - $ref: '#/definitions/MissionCreateModel'
+
+
+  MissionCreateModel:
+    allOf:     # Combines the MissionBriefModel and the inline model
+      - $ref: '#/definitions/MissionBriefModel'
+      - type: object
+        required:
+          - flyParam
+        properties:
+          flyParam:
+            type: object
+            description: "`flyParam` data structure depends on mission `type`, which is specified at [flight mission data structure]()"
+            example:
+              {
+                gotoFirstPointMode: 0,
+                actionOnFinish: 1,
+                actionOnRcLost: 0,
+                gimbalPatchMode: 0,
+                flightPathMode: 0,
+                autoFlightSpeed: 12.1,
+                maxFlightSpeed: 10,
+                headingMode: 0,
+                interestPointLat: 29.980911,
+                interestPointLng: 102.202581,
+                repeatTimes: 1,
+                waypoints: [{
+                  latitude: 29.98091092019941,
+                  longitude: 102.2025812475324,
+                  altitude: 345.69214,
+                  heading: 20,
+                  cornerRadius: 1.2,
+                  actionTimeLimit: 20,
+                  cameraAction: 1,
+                  cameraActionParam: 1000,
+                  hasAction: 1,
+                  hasSpeed: 1,
+                  speed: 13.4,
+                  gimbalPitch: -10,
+                  turnMode: 1,
+                  actions: [{type: 1, param: 20}]
+                }]
+              }
+
+  PaginationModel:
+    type: object
+    required:
+      - pages
+      - total
+    properties:
+      pages:
+        type: integer
+        example: 10
+      total:
+        type: integer
+        example: 191
+
+tags:
+  - name: Auth
+    description: User Authentication
+  - name: System
+    description: System Info
+  # - name: User
+  #   description: User Management
+  - name: Team
+    description: Team Management
+  - name: Drone
+    description: Drone Management
+  # - name: Flight Records
+  # - name: Flight Statistics
+  - name: Live Streaming
+  - name: Real-time Report
+  - name: Storage
+    description: Object storage
+  # - name: Task
+  #   description: Mission Task
+  # - name: Mission
+  #   description: Mission 
+  # - name: Remote Control
+  #   description: Remote control functions send commands from server to client, should use with Pilot PE only.
+  # - name: Device Management
+  #   description: Manage Device of Aircrafts and Batteries
+
+parameters:
+  droneSNPathParam:
+    name: sn
+    in: path
+    type: string
+    required: true
+    description: The drone SN.
+  controlActionParam:
+    name: action
+    in: path
+    type: string
+    required: true
+  cameraModeParam:
+    name: mode
+    in: path
+    type: string
+    required: true
+  queryParam:
+    name: q
+    in: query
+    type: string
+    description: query conditions.
+  offsetParam:
+    in: query
+    name: offset
+    required: false
+    type: integer
+    default: 0
+    minimum: 0
+    description: The number of items to skip before starting to collect the result set.
+  limitParam:
+    in: query
+    name: limit
+    required: false
+    type: integer
+    minimum: 1
+    maximum: 50
+    default: 20
+    description: The numbers of items to return.
+  startTsParam:
+    name: startTs
+    required: true
+    in: query
+    type: integer
+    description: start time in UNIX millisecond. 1 day before now by default
+  endTsParam:
+    name: endTs
+    required: true
+    in: query
+    type: integer
+    description: end time in UNIX millisecond. Current time by default
+  lang:
+    name: lang
+    in: query
+    type: string
+    description: language, "en" or "zh_cn"
+    default: en
+  sortField:
+    name: sortField
+    in: query
+    type: string
+    description: sort filed
+  sortDirection:
+    name: sortDirection
+    in: query
+    type: string
+    description: sort direction, asc or desc
+    default: asc
+  permissionPara:
+    name: permission
+    in: query
+    type: integer
+    format: int64
+    required: false
+    description: |
+      default permission setting:
+      `0`: not see by any user, except the ones in the whitelist
+      `1`: will see by all user
+
+  teamIdParam:
+    name: teamId
+    in: query
+    type: integer
+    description: team id
+    required: true

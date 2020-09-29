@@ -1,0 +1,20 @@
+WebSDK document package contains:
+api/websdk.yaml
+   YAML format Swagger API document for WebSDK.
+swagger-ui/
+   Static bundled API documentation for WebSDK rendered by Swagger UI. Open the in swagger-ui/index.html in Firefox, or put this folder on your web server.
+websdk-doc.html
+   Single-page HTML API document for WebSDK.
+
+
+Before the SDK development, you should ensure that
+1. the FlightHub License obtained has SDK module enabled.
+2. APPID and APPKEY correctly configurated on FlightHub.
+
+How to configurate APPID and APPKEY?
+1. ssh to the server that FlightHub is installed, and enter to the installation directory (default is /opt/flighthub)
+2. edit flighthub.cfg file, append two key-value pairs to the end:
+export FHSDK_APPID=fhappid
+export FHSDK_APPKEY=fhaddkey
+
+3. execute "sudo ./start.sh all" to make the configuration effect.
