@@ -1,0 +1,9 @@
+# ignore packages installed by npm
+node_modules*
+es-config*
+eslicense.dat
+dist/
+
+# such as .DS_Store (OSX), *.bak, etc.
+.DS_Store
+
