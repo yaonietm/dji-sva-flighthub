@@ -17,17 +17,16 @@ function getReqId() {
 // Nodejs: crypto.createHmac(algorithm, key).update(data) where algorithm='SHA1'
 
 function getSignData(fhTsStr, data) {
-    const binAppKey = Uint8Array.from(APP_KEY);
-    const binFhTs = Uint8Array.from(fhTsStr);
-    const appSignKey = crypto.createHmac(SHA1, binAppKey).update(binFhTs);
+    const appSignKey = hmacSha1(Buffer.from(fhTsStr), Buffer.from(APP_KEY));
+    const bodySignKey = hmacSha1(Buffer.from(APP_ID), appSignKey);
+    const dataSign = hmacSha1(Buffer.from(data), bodySignKey);
+    return dataSign.toString('base64');
+}
 
-    const binAppId = Uint8Array.from(APP_ID);
-    const bodySignKey = crypto.createHmac(SHA1, Uint8Array.from(appSignKey)).update(binAppId);
-
-    const binBody = Uint8Array.from(data);
-    const dataSign = crypto.createHmac(SHA1, Uint8Array.from(bodySignKey)).update(binBody);
-
-    return dataSign.digest('base64');
+function hmacSha1(encData, encKey) {
+    const hmac = crypto.createHmac(SHA1, encKey);
+    hmac.update(encData);
+    return Buffer.from(hmac.digest());
 }
 
 async function getAllUsers() {
@@ -56,25 +55,10 @@ async function getAllUsers() {
     return result;
 }
 
-function padEnd(str, size) {
-    let result = str;
-    let n = size - str.length;
-    while (n > 0) {
-        result += ' ';
-        n--;
-    }
-    return result;
-}
-
 function listUsers(users) {
-    console.log(`${padEnd('id', 20)} ${padEnd('account', 40)} ${padEnd('name', 30)}`);
-    console.log(`-------------------- ---------------------------------------- ------------------------------`);
-    if (users.length === 0) {
-        console.log('    Lista vazia');
-        return;
-    }
+    console.log('id, account, name');
     for (const user of users)
-        console.log(`${padEnd(''+user.id, 20)} ${padEnd(user.account, 40)} ${padEnd(user.name, 30)}`);
+        console.log(user.id, user.account, user.name);
 }
 
 function fatalError(msg) {
@@ -83,11 +67,16 @@ function fatalError(msg) {
 }
 
 async function run() {
-    const users = await getAllUsers();
-    if (users.error) {
-        console.log(users.error);
+    const res = await getAllUsers();
+    if (res.error) {
+        console.log(res.error);
         fatalError('Falha na obtenção da lista de usuários.');
     }
+    if (!res.data) {
+        console.log(res);
+        fatalError('Falha na obtenção da lista de usuários.');
+    }
+    const users = res.data.list;
     if (!Array.isArray(users)) {
         console.log(users);
         fatalError('Falha na obtenção da lista de usuários.');
